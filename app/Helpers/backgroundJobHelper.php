@@ -17,8 +17,8 @@ if (!function_exists('runBackgroundJob')) {
     {
         // Pre-approved classes and methods
         $allowedJobs = [
-            'App\\Jobs\\SendWelcomeEmail' => ['handle'],
-            'App\\Jobs\\SendPasswordResetEmail' => ['handle', 'sendResetLink'],
+            'App\Jobs\SendWelcomeEmail' => ['handle'],
+            'App\Jobs\SendPasswordResetEmail' => ['handle', 'sendResetLink'],
             // Add more approved job classes and methods as needed
         ];
 
