@@ -40,7 +40,7 @@ runBackgroundJob($className, $method, $params = [], $retryAttempts = 3, $retryDe
 To run a background job that sends a welcome email to a user with `user_id` of 123:
 
 ```php
-runBackgroundJob('App\\Jobs\\SendWelcomeEmail', 'handle', ['user_id' => 123]);
+runBackgroundJob('App\Jobs\SendWelcomeEmail', 'handle', ['user_id' => 123]);
 ```
 
 This will run the `SendWelcomeEmail` job asynchronously in the background by calling the `handle` method and passing `user_id` as a parameter.
@@ -59,7 +59,7 @@ The retry mechanism allows jobs to be retried a configurable number of times in 
 To configure retry attempts and delay, use the following:
 
 ```php
-runBackgroundJob('App\\Jobs\\SendWelcomeEmail', 'handle', ['user_id' => 123], 5, 10);
+runBackgroundJob('App\Jobs\SendWelcomeEmail', 'handle', ['user_id' => 123], 5, 10);
 ```
 
 This will retry the job 5 times with a 10-second delay between attempts.
@@ -125,8 +125,8 @@ To enhance security, only jobs listed in the `allowedJobs` array can be run. Una
 
 ```php
 $allowedJobs = [
-    'App\\Jobs\\SendWelcomeEmail' => ['handle'],
-    'App\\Jobs\\SendPasswordResetEmail' => ['handle', 'sendResetLink'],
+    'App\Jobs\SendWelcomeEmail' => ['handle'],
+    'App\Jobs\SendPasswordResetEmail' => ['handle', 'sendResetLink'],
 ];
 ```
 
@@ -145,7 +145,7 @@ php artisan background:run {className} {method} {params?*}
 For example, to run the `handle` method of the `SendWelcomeEmail` job:
 
 ```bash
-php artisan background:run App\\Jobs\\SendWelcomeEmail handle user_id=123
+php artisan background:run App\Jobs\SendWelcomeEmail handle user_id=123
 ```
 
 This will trigger the job to execute in the background, just like the `runBackgroundJob` function.
@@ -166,7 +166,7 @@ Here’s a full example of using the `runBackgroundJob` function in code:
 
 ```php
 // Run a background job with retry logic and a delay
-runBackgroundJob('App\\Jobs\\SendWelcomeEmail', 'handle', ['user_id' => 123], 3, 10);
+runBackgroundJob('App\Jobs\SendWelcomeEmail', 'handle', ['user_id' => 123], 3, 10);
 ```
 
 This example will:
