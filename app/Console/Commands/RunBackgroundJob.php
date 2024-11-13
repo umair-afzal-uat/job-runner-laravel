@@ -70,7 +70,8 @@ class RunBackgroundJob extends Command
                 'method' => $method,
                 'params' => json_encode($params),
                 'status' => 'running',
-                'priority' => $priority, // Store priority as a string (high, normal, low)
+                'priority' => $priority,
+                'retry_attempts' => $retryAttempts,
                 'created_at' => now(),
             ]);
 

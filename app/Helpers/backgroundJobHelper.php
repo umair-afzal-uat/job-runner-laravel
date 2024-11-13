@@ -75,6 +75,7 @@ if (!function_exists('runBackgroundJob')) {
             'params' => json_encode($params),
             'status' => 'running',
             'priority' => $priority,
+            'retry_attempts' => $retryAttempts,
             'created_at' => now(),
         ]);
 
