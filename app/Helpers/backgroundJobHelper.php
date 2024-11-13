@@ -14,10 +14,10 @@ if (!function_exists('runBackgroundJob')) {
      * @param int $retryAttempts
      * @param int $retryDelay
      * @param int $jobDelay
-     * @param int $priority
+     * @param string $priority
      * @return void
      */
-    function runBackgroundJob($className, $method, $params = [], $retryAttempts = 3, $retryDelay = 5, $jobDelay = 0, $priority = 1)
+    function runBackgroundJob($className, $method, $params = [], $retryAttempts = 3, $retryDelay = 5, $jobDelay = 0, $priority = 'normal')
     {
         // Pre-approved classes and methods
         $allowedJobs = [
@@ -85,6 +85,24 @@ if (!function_exists('runBackgroundJob')) {
             'timestamp' => now()->toDateTimeString(),
         ], now()->addMinutes(30));
 
+        // Handle priority logic: Delay lower priority jobs based on existing jobs in the queue
+        $queuedJobs = BackgroundJob::where('status', 'running')
+            ->orderByRaw("FIELD(priority, 'high', 'normal', 'low')")
+            ->get();
+
+        // If there are higher priority jobs in the queue, wait for them to finish
+        foreach ($queuedJobs as $queuedJob) {
+            if ($queuedJob->priority === 'high' && $priority !== 'high') {
+                Log::channel('background_jobs')->info("Job {$className}@{$method} is waiting for higher priority job to complete.", [
+                    'timestamp' => now()->toDateTimeString(),
+                    'priority' => $priority,
+                    'waiting_for' => $queuedJob->class_name,
+                ]);
+                sleep(5); // Delay to allow the higher priority job to complete
+            }
+        }
+
+        // Retry mechanism with delay
         while ($retryCount < $retryAttempts && !$success) {
             try {
                 // Execute the background command

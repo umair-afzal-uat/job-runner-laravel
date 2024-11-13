@@ -7,13 +7,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use App\Models\BackgroundJob;
 
-
 class RunBackgroundJob extends Command
 {
-    // Command signature defining required arguments (class, method) and optional parameters (params, delay, priority, retries, retry-delay)
-    protected $signature = 'background:run {class} {method} {params?*} {--delay=0} {--priority=1} {--retries=3} {--retry-delay=5}';
+    // Command signature with priority option defined as string values (high, normal, low)
+    protected $signature = 'background:run {class} {method} {params?*} {--delay=0} {--priority=normal} {--retries=3} {--retry-delay=5}';
 
-    // Command description displayed in the Artisan command list
+    // Command description
     protected $description = 'Run a background job with support for retries, delay, and priority tracking';
 
     /**
@@ -28,9 +27,18 @@ class RunBackgroundJob extends Command
         $method = $this->argument('method');
         $params = $this->argument('params');
         $delay = (int) $this->option('delay');
-        $priority = (int) $this->option('priority');
+        $priority = $this->option('priority');
         $retryAttempts = (int) $this->option('retries');
         $retryDelay = (int) $this->option('retry-delay');
+
+        // Map priority string to numeric value
+        $priorityMap = [
+            'high' => 3,
+            'normal' => 2,
+            'low' => 1,
+        ];
+
+        $priorityValue = $priorityMap[$priority] ?? 2; // Default to normal if invalid priority
 
         try {
             // Parse the input parameters into an associative array (e.g., "key=value" becomes ['key' => 'value'])
@@ -51,18 +59,18 @@ class RunBackgroundJob extends Command
             // Store initial job status in the cache for dashboard or monitoring purposes
             Cache::put("job_{$className}_{$method}", [
                 'status' => 'running',
-                'priority' => $priority,
+                'priority' => $priorityValue,
                 'params' => $parsedParams,
                 'timestamp' => now()->toDateTimeString(),
             ], now()->addMinutes(30));
 
-            // Create the background job in the database
+            // Create the background job in the database with priority value
             $job = BackgroundJob::create([
                 'class_name' => $className,
                 'method' => $method,
                 'params' => json_encode($params),
                 'status' => 'running',
-                'priority' => $priority,
+                'priority' => $priorityValue,
                 'created_at' => now(),
             ]);
 

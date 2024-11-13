@@ -16,7 +16,7 @@ class CreateBackgroundJobsTable extends Migration
             $table->integer('retry_attempts')->default(3);
             $table->integer('current_attempt')->default(0);
             $table->integer('retry_delay')->default(5);
-            $table->integer('priority')->default(0);
+            $table->enum('priority', ['high', 'normal', 'low'])->default('normal');
             $table->timestamp('delay_until')->nullable();
             $table->enum('status', ['pending', 'running', 'completed', 'failed'])->default('pending');
             $table->text('error')->nullable();
