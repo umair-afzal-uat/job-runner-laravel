@@ -26,10 +26,19 @@ class RunBackgroundJob extends Command
         $className = $this->argument('class');
         $method = $this->argument('method');
         $params = $this->argument('params');
-        $delay = (int) $this->option('delay');
-        $priority = $this->option('priority');
-        $retryAttempts = (int) $this->option('retries');
-        $retryDelay = (int) $this->option('retry-delay');
+
+        // Ask user for interactive input for optional parameters
+        $delay = (int) $this->ask('Enter delay time in seconds (default 0)');
+        $priority = $this->ask('Enter priority (high, normal, low)', 'normal');
+        $retryAttempts = (int) $this->ask('Enter number of retries (default 3)');
+        $retryDelay = (int) $this->ask('Enter retry delay in seconds (default 5)');
+
+        // Validate priority input (ensuring it matches one of the allowed values)
+        $validPriorities = ['high', 'normal', 'low'];
+        $priority = strtolower($priority); // Ensure lowercase for consistency
+        if (!in_array($priority, $validPriorities)) {
+            $priority = 'normal'; // Default to normal if invalid priority
+        }
 
         try {
             // Parse the input parameters into an associative array (e.g., "key=value" becomes ['key' => 'value'])
@@ -55,13 +64,13 @@ class RunBackgroundJob extends Command
                 'timestamp' => now()->toDateTimeString(),
             ], now()->addMinutes(30));
 
-            // Create the background job in the database with priority value
+            // Create the background job in the database with priority as string
             $job = BackgroundJob::create([
                 'class_name' => $className,
                 'method' => $method,
                 'params' => json_encode($params),
                 'status' => 'running',
-                'priority' => $priority,
+                'priority' => $priority, // Store priority as a string (high, normal, low)
                 'created_at' => now(),
             ]);
 
