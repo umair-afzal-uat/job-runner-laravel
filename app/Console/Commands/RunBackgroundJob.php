@@ -8,17 +8,20 @@ use Illuminate\Support\Facades\Cache;
 
 class RunBackgroundJob extends Command
 {
-    // Command signature with arguments for class, method, optional parameters, delay, priority, and retry attempts
+    // Command signature defining required arguments (class, method) and optional parameters (params, delay, priority, retries, retry-delay)
     protected $signature = 'background:run {class} {method} {params?*} {--delay=0} {--priority=1} {--retries=3} {--retry-delay=5}';
 
-    // A short description of what the command does
+    // Command description displayed in the Artisan command list
     protected $description = 'Run a background job with support for retries, delay, and priority tracking';
 
     /**
-     * The main handle function that runs the background job.
+     * Handle function to execute the background job.
+     * This function handles the instantiation of the class, method invocation, error logging,
+     * retry mechanism, and updates job status in the cache.
      */
     public function handle()
     {
+        // Extract command arguments and options
         $className = $this->argument('class');
         $method = $this->argument('method');
         $params = $this->argument('params');
@@ -28,14 +31,14 @@ class RunBackgroundJob extends Command
         $retryDelay = (int) $this->option('retry-delay');
 
         try {
-            // Parse the parameters into an associative array (e.g., "user_id=123" becomes ['user_id' => 123])
+            // Parse the input parameters into an associative array (e.g., "key=value" becomes ['key' => 'value'])
             $parsedParams = [];
             foreach ($params as $param) {
                 [$key, $value] = explode('=', $param);
                 $parsedParams[$key] = is_numeric($value) ? (int)$value : $value;
             }
 
-            // Log the start of the job with details
+            // Log the start of the job execution
             Log::channel('background_jobs')->info("Job started: {$className}@{$method}", [
                 'params' => $parsedParams,
                 'priority' => $priority,
@@ -43,7 +46,7 @@ class RunBackgroundJob extends Command
                 'timestamp' => now()->toDateTimeString(),
             ]);
 
-            // Store initial job status in Cache for dashboard integration
+            // Store initial job status in the cache for dashboard or monitoring purposes
             Cache::put("job_{$className}_{$method}", [
                 'status' => 'running',
                 'priority' => $priority,
@@ -51,7 +54,7 @@ class RunBackgroundJob extends Command
                 'timestamp' => now()->toDateTimeString(),
             ], now()->addMinutes(30));
 
-            // Delay execution if specified
+            // Apply delay before starting the job execution if specified
             if ($delay > 0) {
                 sleep($delay);
             }
@@ -59,13 +62,14 @@ class RunBackgroundJob extends Command
             $retryCount = 0;
             $success = false;
 
-            // Retry loop
+            // Retry loop to handle job execution and retries
             while ($retryCount < $retryAttempts && !$success) {
                 try {
-                    // Use reflection to instantiate the class and call the method
+                    // Use reflection to dynamically instantiate the class and call the specified method
                     $reflection = new \ReflectionClass($className);
                     $constructor = $reflection->getConstructor();
 
+                    // Resolve constructor dependencies if any
                     $dependencies = [];
                     if ($constructor) {
                         foreach ($constructor->getParameters() as $param) {
@@ -74,6 +78,7 @@ class RunBackgroundJob extends Command
                         }
                     }
 
+                    // Instantiate the class and prepare method parameters
                     $classInstance = $reflection->newInstanceArgs($dependencies);
                     $methodReflection = $reflection->getMethod($method);
                     $methodParams = [];
@@ -83,10 +88,10 @@ class RunBackgroundJob extends Command
                         $methodParams[] = $parsedParams[$name] ?? null;
                     }
 
-                    // Invoke the method
+                    // Invoke the specified method with the parsed parameters
                     $result = $methodReflection->invokeArgs($classInstance, $methodParams);
 
-                    // Log the success status of the job execution
+                    // Log successful execution and update cache status
                     Log::channel('background_jobs')->info("Job executed successfully: {$className}@{$method}", [
                         'status' => 'success',
                         'timestamp' => now()->toDateTimeString(),
@@ -98,7 +103,7 @@ class RunBackgroundJob extends Command
 
                     $success = true;
                 } catch (\Exception $e) {
-                    // Log the error and increment retry count
+                    // Log the error and retry count, then increment retry count
                     Log::channel('background_jobs')->error("Job failed: {$className}@{$method}", [
                         'error' => $e->getMessage(),
                         'retry_count' => $retryCount + 1,
@@ -106,6 +111,8 @@ class RunBackgroundJob extends Command
                     ]);
 
                     $retryCount++;
+
+                    // Log retry attempt and apply delay before next retry if needed
                     if ($retryCount < $retryAttempts) {
                         Log::channel('background_jobs')->info("Retrying job: {$className}@{$method} - Attempt {$retryCount} of {$retryAttempts}", [
                             'params' => $parsedParams,
@@ -117,8 +124,8 @@ class RunBackgroundJob extends Command
                 }
             }
 
+            // Log failure after exhausting all retries and update cache status
             if (!$success) {
-                // Log final failure and update cache
                 Log::channel('background_jobs')->error("Job failed after {$retryAttempts} attempts: {$className}@{$method}", [
                     'params' => $parsedParams,
                     'status' => 'failed',
@@ -130,7 +137,7 @@ class RunBackgroundJob extends Command
                 ], now()->addMinutes(30));
             }
         } catch (\Exception $e) {
-            // Log unexpected errors
+            // Log any unexpected errors that occur during the job handling process
             Log::channel('background_jobs')->error("Unexpected error in job execution: {$className}@{$method}", [
                 'error' => $e->getMessage(),
                 'timestamp' => now()->toDateTimeString(),
