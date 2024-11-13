@@ -1,19 +1,22 @@
 <?php
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 if (!function_exists('runBackgroundJob')) {
     /**
-     * Run a job in the background with retry logic, validation, and logging.
+     * Run a job in the background with retry logic, delay, priority, validation, and logging.
      *
      * @param string $className
      * @param string $method
      * @param array $params
      * @param int $retryAttempts
      * @param int $retryDelay
+     * @param int $jobDelay
+     * @param int $priority
      * @return void
      */
-    function runBackgroundJob($className, $method, $params = [], $retryAttempts = 3, $retryDelay = 5)
+    function runBackgroundJob($className, $method, $params = [], $retryAttempts = 3, $retryDelay = 5, $jobDelay = 0, $priority = 1)
     {
         // Pre-approved classes and methods
         $allowedJobs = [
@@ -24,7 +27,6 @@ if (!function_exists('runBackgroundJob')) {
 
         // Validate if the class and method are allowed
         if (!isset($allowedJobs[$className]) || !in_array($method, $allowedJobs[$className])) {
-            // Log unauthorized job attempt
             Log::channel('background_jobs')->error("Unauthorized job execution attempt: {$className}@{$method}", [
                 'params' => $params,
                 'status' => 'unauthorized',
@@ -33,49 +35,63 @@ if (!function_exists('runBackgroundJob')) {
             return;
         }
 
-        $paramsString = http_build_query($params);
-
         // Escape class and method for safety
         $className = escapeshellarg($className);
         $method = escapeshellarg($method);
+        $paramsString = http_build_query($params);
 
         // Prepare the command
         $command = "php artisan background:run {$className} {$method} {$paramsString}";
 
+        // Check OS type and prepare command for background execution
+        if (strncasecmp(PHP_OS, 'WIN', 3) === 0) {
+            $command = 'start /B ' . $command;
+        } else {
+            $command = 'nohup ' . $command . ' > /dev/null 2>&1 &';
+        }
+
+        // Add job delay if specified
+        if ($jobDelay > 0) {
+            sleep($jobDelay);
+        }
+
+        // Initialize retry and success tracking
         $retryCount = 0;
         $success = false;
 
-        // Log job start with timestamp
+        // Log job start with timestamp and priority
         Log::channel('background_jobs')->info("Job started: {$className}@{$method}", [
             'params' => $params,
             'status' => 'running',
+            'priority' => $priority,
             'timestamp' => now()->toDateTimeString(),
         ]);
 
+        // Use Cache to manage job priority (optional for future dashboard integration)
+        Cache::put("job_{$className}_{$method}", [
+            'status' => 'running',
+            'priority' => $priority,
+            'timestamp' => now()->toDateTimeString(),
+        ], now()->addMinutes(30));
+
         while ($retryCount < $retryAttempts && !$success) {
             try {
-                // Check OS type (Unix or Windows)
-                if (strncasecmp(PHP_OS, 'WIN', 3) === 0) {
-                    // Windows (use start for background execution)
-                    $command = 'start /B ' . $command;
-                } else {
-                    // Unix/Linux (use nohup to run in the background)
-                    $command = 'nohup ' . $command . ' > /dev/null 2>&1 &';
-                }
-
                 // Execute the background command
                 exec($command);
 
-                // Log job completion with timestamp
+                // Log job completion and update cache
                 Log::channel('background_jobs')->info("Job completed: {$className}@{$method}", [
                     'params' => $params,
                     'status' => 'completed',
                     'timestamp' => now()->toDateTimeString(),
                 ]);
+                Cache::put("job_{$className}_{$method}", [
+                    'status' => 'completed',
+                    'timestamp' => now()->toDateTimeString(),
+                ], now()->addMinutes(30));
 
                 $success = true;
             } catch (\Exception $e) {
-                // Log the error and retry attempt
                 Log::channel('background_jobs')->error("Job failed: {$className}@{$method}", [
                     'error' => $e->getMessage(),
                     'params' => $params,
@@ -83,7 +99,7 @@ if (!function_exists('runBackgroundJob')) {
                     'timestamp' => now()->toDateTimeString(),
                 ]);
 
-                // Retry logic
+                // Retry logic with delay
                 $retryCount++;
                 if ($retryCount < $retryAttempts) {
                     Log::channel('background_jobs')->info("Retrying job: {$className}@{$method} - Attempt {$retryCount} of {$retryAttempts}", [
@@ -91,19 +107,22 @@ if (!function_exists('runBackgroundJob')) {
                         'status' => 'retrying',
                         'timestamp' => now()->toDateTimeString(),
                     ]);
-
-                    sleep($retryDelay);  // Delay between retries (in seconds)
+                    sleep($retryDelay);
                 }
             }
         }
 
         if (!$success) {
-            // Log failure after all retry attempts are exhausted
+            // Log final failure and update cache
             Log::channel('background_jobs')->error("Job failed after {$retryAttempts} attempts: {$className}@{$method}", [
                 'params' => $params,
                 'status' => 'failed',
                 'timestamp' => now()->toDateTimeString(),
             ]);
+            Cache::put("job_{$className}_{$method}", [
+                'status' => 'failed',
+                'timestamp' => now()->toDateTimeString(),
+            ], now()->addMinutes(30));
         }
     }
 }
