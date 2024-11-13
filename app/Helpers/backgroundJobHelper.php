@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use App\Models\BackgroundJob;
 
 if (!function_exists('runBackgroundJob')) {
     /**
@@ -67,6 +68,16 @@ if (!function_exists('runBackgroundJob')) {
             'timestamp' => now()->toDateTimeString(),
         ]);
 
+        // Create the background job in the database
+        $job = BackgroundJob::create([
+            'class_name' => $className,
+            'method' => $method,
+            'params' => json_encode($params),
+            'status' => 'running',
+            'priority' => $priority,
+            'created_at' => now(),
+        ]);
+
         // Use Cache to manage job priority (optional for future dashboard integration)
         Cache::put("job_{$className}_{$method}", [
             'status' => 'running',
@@ -85,6 +96,14 @@ if (!function_exists('runBackgroundJob')) {
                     'status' => 'completed',
                     'timestamp' => now()->toDateTimeString(),
                 ]);
+
+                // Update the job status in the database
+                $job->update([
+                    'status' => 'completed',
+                    'updated_at' => now(),
+                ]);
+
+                // Update cache as well
                 Cache::put("job_{$className}_{$method}", [
                     'status' => 'completed',
                     'timestamp' => now()->toDateTimeString(),
@@ -119,6 +138,14 @@ if (!function_exists('runBackgroundJob')) {
                 'status' => 'failed',
                 'timestamp' => now()->toDateTimeString(),
             ]);
+
+            // Update the job status to 'failed' in the database
+            $job->update([
+                'status' => 'failed',
+                'updated_at' => now(),
+            ]);
+
+            // Update cache
             Cache::put("job_{$className}_{$method}", [
                 'status' => 'failed',
                 'timestamp' => now()->toDateTimeString(),

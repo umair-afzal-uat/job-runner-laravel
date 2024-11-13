@@ -13,5 +13,5 @@ class BackgroundJob extends Model
     protected $table = 'background_jobs';
 
     // Define the fillable attributes (columns that are mass assignable)
-    protected $fillable = ['class_name', 'method_name', 'status', 'params', 'created_at', 'updated_at'];
+    protected $fillable = ['class_name', 'method', 'status', 'params', 'created_at', 'updated_at'];
 }

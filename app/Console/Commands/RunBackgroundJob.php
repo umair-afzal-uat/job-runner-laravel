@@ -5,6 +5,8 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use App\Models\BackgroundJob;
+
 
 class RunBackgroundJob extends Command
 {
@@ -54,6 +56,16 @@ class RunBackgroundJob extends Command
                 'timestamp' => now()->toDateTimeString(),
             ], now()->addMinutes(30));
 
+            // Create the background job in the database
+            $job = BackgroundJob::create([
+                'class_name' => $className,
+                'method' => $method,
+                'params' => json_encode($params),
+                'status' => 'running',
+                'priority' => $priority,
+                'created_at' => now(),
+            ]);
+
             // Apply delay before starting the job execution if specified
             if ($delay > 0) {
                 sleep($delay);
@@ -96,6 +108,11 @@ class RunBackgroundJob extends Command
                         'status' => 'success',
                         'timestamp' => now()->toDateTimeString(),
                     ]);
+                    // Update the job status in the database
+                    $job->update([
+                        'status' => 'completed',
+                        'updated_at' => now(),
+                    ]);
                     Cache::put("job_{$className}_{$method}", [
                         'status' => 'completed',
                         'timestamp' => now()->toDateTimeString(),
@@ -130,6 +147,11 @@ class RunBackgroundJob extends Command
                     'params' => $parsedParams,
                     'status' => 'failed',
                     'timestamp' => now()->toDateTimeString(),
+                ]);
+                // Update the job status to 'failed' in the database
+                $job->update([
+                    'status' => 'failed',
+                    'updated_at' => now(),
                 ]);
                 Cache::put("job_{$className}_{$method}", [
                     'status' => 'failed',

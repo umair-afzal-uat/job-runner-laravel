@@ -26,7 +26,7 @@
                 <td>{{ $job->priority }}</td>
                 <td>
                     @if ($job->status === 'pending')
-                    <form action="/background-jobs/cancel/{{ $job->id }}" method="POST">
+                    <form action="/admin/background-jobs/cancel/{{ $job->id }}" method="POST">
                         @csrf
                         <button class="btn btn-danger btn-sm">Cancel</button>
                     </form>
