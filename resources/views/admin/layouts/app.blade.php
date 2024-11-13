@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'Laravel Application')</title>
+    <title>@yield('title', 'Custom Background Job Runner for Laravel')</title>
     <!-- Include Bootstrap CSS or any other CSS libraries -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Add additional CSS here if needed -->
@@ -16,7 +16,7 @@
         <!-- Header Section -->
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
             <div class="container-fluid">
-                <a class="navbar-brand" href="{{ url('/') }}">Laravel App</a>
+                <a class="navbar-brand" href="{{  route('admin.background-jobs.index') }}">Custom-Job-Runner</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
