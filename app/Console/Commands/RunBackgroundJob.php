@@ -31,15 +31,6 @@ class RunBackgroundJob extends Command
         $retryAttempts = (int) $this->option('retries');
         $retryDelay = (int) $this->option('retry-delay');
 
-        // Map priority string to numeric value
-        $priorityMap = [
-            'high' => 3,
-            'normal' => 2,
-            'low' => 1,
-        ];
-
-        $priorityValue = $priorityMap[$priority] ?? 2; // Default to normal if invalid priority
-
         try {
             // Parse the input parameters into an associative array (e.g., "key=value" becomes ['key' => 'value'])
             $parsedParams = [];
@@ -59,7 +50,7 @@ class RunBackgroundJob extends Command
             // Store initial job status in the cache for dashboard or monitoring purposes
             Cache::put("job_{$className}_{$method}", [
                 'status' => 'running',
-                'priority' => $priorityValue,
+                'priority' => $priority,
                 'params' => $parsedParams,
                 'timestamp' => now()->toDateTimeString(),
             ], now()->addMinutes(30));
@@ -70,7 +61,7 @@ class RunBackgroundJob extends Command
                 'method' => $method,
                 'params' => json_encode($params),
                 'status' => 'running',
-                'priority' => $priorityValue,
+                'priority' => $priority,
                 'created_at' => now(),
             ]);
 
